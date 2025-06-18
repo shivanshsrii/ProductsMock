@@ -1,14 +1,13 @@
 # Stage 1: Build
 FROM mcr.microsoft.com/dotnet/sdk:8.0 AS build
-WORKDIR /app
+WORKDIR /src
 
-# Copy and restore
+COPY *.sln .
 COPY *.csproj ./
-RUN dotnet restore
-
-# Copy source and publish
 COPY . ./
-RUN dotnet publish -c Release -o out
+
+RUN dotnet restore
+RUN dotnet publish -c Release -o /app/out
 
 # Stage 2: Runtime
 FROM mcr.microsoft.com/dotnet/aspnet:8.0
