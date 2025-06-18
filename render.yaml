@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: productsmock-api
+    env: dotnet
+    plan: free
+    buildCommand: dotnet build
+    startCommand: dotnet ProductsMock.dll
+    publishPath: bin/Release/net8.0/publish
+    rootDir: ProductsMock
