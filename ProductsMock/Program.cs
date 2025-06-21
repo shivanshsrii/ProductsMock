@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using ProductApi.Data;
+using ProductsMock.Helpers;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -11,6 +12,8 @@ builder.Services.AddSwaggerGen();           // Swagger generator
 // Add PostgreSQL DbContext
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
+builder.Services.Configure<CloudinarySettings>(
+    builder.Configuration.GetSection("CloudinarySettings"));
 
 var app = builder.Build();
 

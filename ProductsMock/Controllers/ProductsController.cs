@@ -2,6 +2,10 @@
 using Microsoft.EntityFrameworkCore;
 using ProductApi.Data;
 using ProductApi.Models;
+using CloudinaryDotNet;
+using CloudinaryDotNet.Actions;
+using Microsoft.Extensions.Options;
+using ProductsMock.Helpers;
 
 namespace ProductApi.Controllers
 {
@@ -11,11 +15,19 @@ namespace ProductApi.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IWebHostEnvironment _env;
+        private readonly Cloudinary _cloudinary;
 
-        public ProductsController(AppDbContext context, IWebHostEnvironment env)
+        public ProductsController(AppDbContext context, IWebHostEnvironment env, IOptions<CloudinarySettings> config)
         {
             _context = context;
             _env = env;
+            var acc = new Account(
+                config.Value.CloudName,
+                config.Value.ApiKey,
+                config.Value.ApiSecret
+            );
+
+            _cloudinary = new Cloudinary(acc);
         }
 
         [HttpGet]
@@ -27,26 +39,31 @@ namespace ProductApi.Controllers
         [HttpPost]
         public async Task<ActionResult<Product>> AddProduct([FromForm] ProductCreateDto dto)
         {
-            string imagePath = "";
-            if (dto.Image != null)
+            string imageUrl = "";
+
+            if (dto.Image != null && dto.Image.Length > 0)
             {
-                var folder = Path.Combine(_env.WebRootPath, "images");
-                Directory.CreateDirectory(folder);
+                await using var stream = dto.Image.OpenReadStream();
 
-                var fileName = Guid.NewGuid() + Path.GetExtension(dto.Image.FileName);
-                var fullPath = Path.Combine(folder, fileName);
+                var uploadParams = new ImageUploadParams
+                {
+                    File = new FileDescription(dto.Image.FileName, stream),
+                    Folder = "products" // optional folder name on Cloudinary
+                };
 
-                using var stream = new FileStream(fullPath, FileMode.Create);
-                await dto.Image.CopyToAsync(stream);
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
 
-                imagePath = $"images/{fileName}";
+                if (uploadResult.Error != null)
+                    return BadRequest(uploadResult.Error.Message);
+
+                imageUrl = uploadResult.SecureUrl.AbsoluteUri;
             }
 
             var product = new Product
             {
                 Name = dto.Name,
                 Price = dto.Price,
-                ImageUrl = imagePath
+                ImageUrl = imageUrl
             };
 
             _context.Products.Add(product);
