@@ -21,6 +21,7 @@ namespace ProductApi.Controllers
         {
             _context = context;
             _env = env;
+
             var acc = new Account(
                 config.Value.CloudName,
                 config.Value.ApiKey,
@@ -36,6 +37,14 @@ namespace ProductApi.Controllers
             return await _context.Products.ToListAsync();
         }
 
+        [HttpGet("{id}")]
+        public async Task<ActionResult<Product>> GetProductById(int id)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
+            return Ok(product);
+        }
+
         [HttpPost]
         public async Task<ActionResult<Product>> AddProduct([FromForm] ProductCreateDto dto)
         {
@@ -44,15 +53,13 @@ namespace ProductApi.Controllers
             if (dto.Image != null && dto.Image.Length > 0)
             {
                 await using var stream = dto.Image.OpenReadStream();
-
                 var uploadParams = new ImageUploadParams
                 {
                     File = new FileDescription(dto.Image.FileName, stream),
-                    Folder = "products" // optional folder name on Cloudinary
+                    Folder = "products"
                 };
 
                 var uploadResult = await _cloudinary.UploadAsync(uploadParams);
-
                 if (uploadResult.Error != null)
                     return BadRequest(uploadResult.Error.Message);
 
@@ -63,6 +70,7 @@ namespace ProductApi.Controllers
             {
                 Name = dto.Name,
                 Price = dto.Price,
+                Description = dto.Description,
                 ImageUrl = imageUrl
             };
 
@@ -70,6 +78,38 @@ namespace ProductApi.Controllers
             await _context.SaveChangesAsync();
 
             return CreatedAtAction(nameof(GetProducts), new { id = product.Id }, product);
+        }
+
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateProduct(int id, [FromForm] ProductCreateDto dto)
+        {
+            var product = await _context.Products.FindAsync(id);
+            if (product == null) return NotFound();
+
+            product.Name = dto.Name;
+            product.Price = dto.Price;
+            product.Description = dto.Description;
+
+            if (dto.Image != null && dto.Image.Length > 0)
+            {
+                await using var stream = dto.Image.OpenReadStream();
+                var uploadParams = new ImageUploadParams
+                {
+                    File = new FileDescription(dto.Image.FileName, stream),
+                    Folder = "products"
+                };
+
+                var uploadResult = await _cloudinary.UploadAsync(uploadParams);
+                if (uploadResult.Error != null)
+                    return BadRequest(uploadResult.Error.Message);
+
+                product.ImageUrl = uploadResult.SecureUrl.AbsoluteUri;
+            }
+
+            _context.Products.Update(product);
+            await _context.SaveChangesAsync();
+
+            return NoContent();
         }
 
         [HttpDelete("{id}")]
